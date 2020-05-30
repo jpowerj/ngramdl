@@ -1,5 +1,89 @@
-require(httr)
-require(jsonlite)
+#' Get n-gram frequencies
+#'
+#' \code{ngram2csv} downloads data from the Google Ngram Viewer website and
+#' saves it into a .csv file, then returns it in a dataframe
+#'
+#' @param phrases vector of phrases, with a maximum of 12 items
+#' @param corpus Google corpus to search (see Details for possible values)
+#' @param year_start start year, default is 1500
+#' @param year_end end year, default is 2008
+#' @param smoothing smoothing paramater, default is 3
+#' @param count logical, denoting whether phrase counts should be returned as
+#'   well as frequencies. Default is \code{FALSE}.
+#' @param tag apply a part-of-speech tag to the whole vector of phrases
+#' @param case_ins Logical indicating whether to force a case insenstive search.
+#'   Default is \code{FALSE}.
+#' @param csv_fname The filename to save the ngram data to. Default is just the first element of \code{phrases}, with spaces replaced by underscores
+#' @param precision How many decimal places to include when saving the frequency values
+#' @details
+#'  Google generated two datasets drawn from digitised books in the Google
+#'  Books collection. One was generated in July 2009, the second in July 2012.
+#'  Google will update these datasets as book scanning continues.
+#'
+#'  This function provides the annual frequency of words or phrases, known as
+#'  n-grams, in a sub-collection or "corpus" taken from the Google Books collection.
+#'  The search across the corpus is case-sensitive. For a case-insensitive search
+#'  use \code{\link{ngrami}}.
+#'
+#' Below is a list of available corpora.
+#' \tabular{ll}{
+#' \bold{Corpus} \tab \bold{Corpus Name}\cr
+#' eng_us_2012\tab American English 2012\cr
+#' eng_us_2009\tab American English 2009\cr
+#' eng_gb_2012\tab British English 2012\cr
+#' eng_gb_2009\tab British English 2009\cr
+#' chi_sim_2012\tab Chinese 2012\cr
+#' chi_sim_2009\tab Chinese 2009\cr
+#' eng_2012\tab English 2012\cr
+#' eng_2009\tab English 2009\cr
+#' eng_fiction_2012\tab English Fiction 2012\cr
+#' eng_fiction_2009\tab English Fiction 2009\cr
+#' eng_1m_2009\tab Google One Million\cr
+#' fre_2012\tab French 2012\cr
+#' fre_2009\tab French 2009\cr
+#' ger_2012\tab German 2012\cr
+#' ger_2009\tab German 2009\cr
+#' heb_2012\tab Hebrew 2012\cr
+#' heb_2009\tab Hebrew 2009\cr
+#' spa_2012\tab Spanish 2012\cr
+#' spa_2009\tab Spanish 2009\cr
+#' rus_2012\tab Russian 2012\cr
+#' rus_2009\tab Russian 2009\cr
+#' ita_2012\tab Italian 2012\cr
+#' }
+#'
+#' The Google Million is a sub-collection of Google Books. All are in
+#' English with dates ranging from 1500 to 2008.
+#' No more than about 6,000 books were chosen from any one year, which means that
+#' all of the scanned books from early years are present, and books from later
+#' years are randomly sampled. The random samplings reflect the subject distributions
+#' for the year (so there are more computer books in 2000 than 1980).
+#'
+#' See \url{http://books.google.com/ngrams/info} for the full Ngram syntax.
+#' @export
+#'
+#'
+
+ngram2csv <- function(phrases, csv_fname=NULL, corpus='eng_2012', year_start = 1500,
+                                year_end = 2008, smoothing = 3, precision=9,
+                                count=FALSE, tag=NULL, case_ins=FALSE) {
+  d <- ngram(phrases, corpus, year_start, year_end, smoothing, count, tag, case_ins)
+  # Round to precision
+  #fmt_string <- paste0("%.",precision,"f")
+  #mysprintf <- function(x) sprintf(fmt=fmt_string, x)
+  #d$Frequency <- sapply(d$Frequency, mysprintf)
+  # Wait this is way better
+  d$Frequency <- format(d$Frequency, drop0trailing = TRUE, scientific = FALSE)
+  # Save to csv
+  if (is.null(csv_fname)){
+    # Use the first phrase
+    csv_fname <- paste0(phrases[1],".csv")
+    csv_fname <- gsub(" ","_",csv_fname)
+  }
+  utils::write.csv(d, file=csv_fname, row.names = FALSE)
+  return(d)
+}
+
 #' Get n-gram frequencies
 #'
 #' \code{ngram} downloads data from the Google Ngram Viewer website and
@@ -71,25 +155,6 @@ require(jsonlite)
 #'
 #'
 
-ngram2csv <- function(phrases, csv_fname=NULL, corpus='eng_2012', year_start = 1500,
-                                year_end = 2008, smoothing = 3, precision=9) {
-  d <- ngram(phrases, corpus, year_start, year_end, smoothing)
-  # Round to precision
-  #fmt_string <- paste0("%.",precision,"f")
-  #mysprintf <- function(x) sprintf(fmt=fmt_string, x)
-  #d$Frequency <- sapply(d$Frequency, mysprintf)
-  # Wait this is way better
-  d$Frequency <- format(d$Frequency, drop0trailing = TRUE, scientific = FALSE)
-  # Save to csv
-  if (is.null(csv_fname)){
-    # Use the first phrase
-    csv_fname <- paste0(phrases[1],".csv")
-    csv_fname <- gsub(" ","_",csv_fname)
-  }
-  write.csv(d, file=csv_fname, row.names = FALSE)
-  return(d)
-}
-
 ngram <- function(phrases, corpus='eng_2012', year_start = 1500,
                   year_end = 2008, smoothing = 3, count=FALSE,
                   tag = NULL, case_ins=FALSE) {
@@ -146,7 +211,9 @@ ngram_fetch <- function(phrases, corpus, year_start,  year_end, smoothing, case_
   ng_url <- ngram_url(phrases, query)
   #   print(ng_url)
   cert <- system.file("CurlSSL/cacert.pem", package = "RCurl")
-  html <- strsplit(content(GET(ng_url, config(cainfo = cert)), "text"), "\n", perl=TRUE)[[1]]
+  ## JJ edit... along with all the other added "::"
+  http_result <- httr::GET(ng_url, httr::config(cainfo = cert))
+  html <- strsplit(httr::content(http_result, "text"), "\n", perl=TRUE)[[1]]
   if (html[1] == "Please try again later.") stop('Server busy, answered "Please try again later."')
   result <- ngram_parse(html)
   #   browser()
@@ -173,7 +240,8 @@ ngram_url <- function(phrases, query=character()){
   phrases <- paste(trimmed_strs, collapse='%2c')
   if (phrases=="") stop("No valid phrases provided.")
   url <- paste0(url, "?content=", phrases)
-  if (length(query) > 0) url <- modify_url(url, query=query)
+  print(url)
+  if (length(query) > 0) url <- httr::modify_url(url, query=query)
   url <- gsub("%28", "(", url)
   url <- gsub("%29", ")", url)
   url <- gsub("%20", "+", url)
@@ -196,11 +264,11 @@ ngram_parse <- function(html){
   ## JJ edits
   data_line <- html[data_line_num]
   data_line <- trimws(data_line)
-  result <- str_match(data_line, "var data = (.*);")[,2]
+  result <- stringr::str_match(data_line, "var data = (.*);")[,2]
   year_line <- html[year_line_num]
   year_line <- trimws(year_line)
   #print(year_line)
-  year_result <- str_match(year_line, "drawD3Chart\\((.*)\\);")[,2]
+  year_result <- stringr::str_match(year_line, "drawD3Chart\\((.*)\\);")[,2]
   #print(year_result)
   year_elts <- unlist(lapply(strsplit(year_result, ","), trimws))
   #print(year_elts)
@@ -211,7 +279,7 @@ ngram_parse <- function(html){
   years <- seq.int(ystart, yend)
   #subbed_line <- sub(".*=","",html[data_line])
   #subbed_line <- sub(";","",subbed_line)
-  ngram_data <- fromJSON(result)
+  ngram_data <- jsonlite::fromJSON(result)
   data_df <- as.data.frame(ngram_data$timeseries)
   cols <- ngram_data$ngram
   #rownames(data_df) <- years

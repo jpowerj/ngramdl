@@ -1,16 +1,27 @@
 Package: ngramdl
 Type: Package
 Title: Jeff's Ngramr Fix
-Version: 0.1.0
+Version: 0.2.0
+Date: 2020-05-29
 Authors@R: person("Jeff", "Jacobs", email = "jjacobs3@cs.stanford.edu",
   role = c("aut", "cre"))
 Maintainer: Jeff Jacobs <jjacobs3@cs.stanford.edu>
 URL: https://github.com/jpowerj/ngramdl
 Description: Download data from Google Ngram Viewer using the ngram2csv() function.
-    It takes in a list of phrases (first argument) and a filename for the csv (second argument), and returns the data.frame that it also writes out to csv (so you can run, e.g., data <- ngram2csv(c("phrase1","phrase2"),"ngram_counts.csv"))
-License: CC-BY-SA-4.0
+    It takes in a list of phrases (first argument) and a filename for the 
+    csv (second argument), and returns the data.frame that it also writes out
+    to csv (so you can run, e.g., data <- ngram2csv(c("phrase1","phrase2"),"ngram_counts.csv"))
+License: GPL (>=2)
 Encoding: UTF-8
 LazyData: true
 Imports:
+    RCurl,
+    ggplot2,
+    plyr,
     jsonlite,
-    httr
+    httr,
+    reshape2,
+    rjson,
+    scales,
+    stringr
+RoxygenNote: 7.1.0
